@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MazerSnake</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --panel: #111118;
+      --border: #1e1e2e;
+      --green: #00ff88;
+      --green-dim: #00cc66;
+      --red: #ff4466;
+      --yellow: #ffd700;
+      --wall: #3a2a5a;
+      --wall-border: #6a3aaa;
+      --text: #c0c0d0;
+      --head: #00ffcc;
+      --body: #00cc77;
+      --tail: #007744;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Press Start 2P', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 10px;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      font-size: clamp(14px, 3vw, 22px);
+      color: var(--green);
+      text-shadow: 0 0 20px var(--green), 0 0 40px var(--green-dim);
+      letter-spacing: 4px;
+      margin-bottom: 16px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { text-shadow: 0 0 20px var(--green), 0 0 40px var(--green-dim); }
+      50% { text-shadow: 0 0 30px var(--green), 0 0 60px var(--green-dim), 0 0 80px #00ff8844; }
+    }
+
+    .hud {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hudCard {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 9px;
+      color: var(--green);
+      min-width: 110px;
+      text-align: center;
+    }
+
+    .hudCard h2 { font-size: 9px; margin-bottom: 4px; }
+    .hudCard h3 { font-size: 8px; margin-bottom: 6px; color: var(--yellow); }
+    .hudCard p  { font-size: 8px; color: var(--text); margin: 2px 0; }
+
+    .historial { min-width: 130px; }
+
+    #board {
+      display: grid;
+      border: 2px solid var(--wall-border);
+      box-shadow: 0 0 30px #6a3aaa44, inset 0 0 20px #00000055;
+      background: #0d0d14;
+    }
+
+    .celda {
+      width: 20px;
+      height: 20px;
+      border: 0.5px solid #13131a;
+    }
+
+    .culebra  { background: var(--body); border-color: #00aa55; }
+    .cabeza   { background: var(--head) !important; box-shadow: 0 0 8px var(--head); border-color: #00ffcc !important; }
+    .cola     { background: var(--tail) !important; border-color: #005533 !important; }
+    .pared    { background: var(--wall); border-color: var(--wall-border); box-shadow: inset 0 0 6px #6a3aaa55; }
+    .fruta    { background: var(--red); border-color: #ff2244; border-radius: 50%; box-shadow: 0 0 8px var(--red); animation: fruitPop 0.8s ease-in-out infinite alternate; }
+
+    @keyframes fruitPop {
+      from { box-shadow: 0 0 6px var(--red); transform: scale(0.9); }
+      to   { box-shadow: 0 0 14px var(--red), 0 0 24px #ff446655; transform: scale(1.05); }
+    }
+
+    /* OVERLAY base */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0fcc;
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 36px 40px;
+      text-align: center;
+      max-width: 380px;
+      width: 90%;
+      box-shadow: 0 0 60px #00ff8822;
+    }
+
+    .card h1 {
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .card p {
+      font-size: 8px;
+      line-height: 1.8;
+      margin-bottom: 10px;
+      color: var(--text);
+      font-family: monospace;
+    }
+
+    .btn-start {
+      margin-top: 20px;
+      padding: 12px 28px;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      letter-spacing: 2px;
+    }
+
+    .btn-start:hover {
+      background: var(--green);
+      color: #000;
+      box-shadow: 0 0 20px var(--green);
+    }
+
+    .gameover-title { color: var(--red); font-size: 18px; text-shadow: 0 0 20px var(--red); margin-bottom: 16px; }
+    .win-title      { color: var(--yellow); font-size: 14px; text-shadow: 0 0 20px var(--yellow); margin-bottom: 16px; }
+
+    #overlay-gameover, #overlay-win { display: none; }
+
+    /* Mobile controls */
+    .mobile-controls {
+      display: none;
+      margin-top: 16px;
+      gap: 8px;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .ctrl-row { display: flex; gap: 8px; }
+
+    .ctrl-btn {
+      width: 52px;
+      height: 52px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--green);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    .ctrl-btn:active { background: #1a1a2e; box-shadow: 0 0 10px var(--green-dim); }
+
+    @media (max-width: 520px) {
+      .mobile-controls { display: flex; }
+      .celda { width: 16px; height: 16px; }
+    }
+
+    @media (max-width: 380px) {
+      .celda { width: 14px; height: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- START OVERLAY -->
+  <div class="overlay" id="overlay-start">
+    <div class="card">
+      <h1>🐍 MAZERSNAKE</h1>
+      <p>Sobrevive el mayor tiempo posible.</p>
+      <p>La serpiente NO muere al tocarse.</p>
+      <p>Come 10 frutas para escapar del laberinto.</p>
+      <p>Usa las flechas del teclado para moverte.</p>
+      <button class="btn-start" id="btnStart">▶ INICIAR JUEGO</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div class="overlay" id="overlay-gameover">
+    <div class="card">
+      <div class="gameover-title">GAME OVER</div>
+      <p id="go-stats"></p>
+      <button class="btn-start" onclick="location.reload()">↺ REINICIAR</button>
+    </div>
+  </div>
+
+  <!-- WIN OVERLAY -->
+  <div class="overlay" id="overlay-win">
+    <div class="card">
+      <div class="win-title">🏆 YOU SURVIVED</div>
+      <p>Escapaste del laberinto imposible</p>
+      <p id="win-stats"></p>
+      <button class="btn-start" onclick="location.reload()">▶ JUGAR OTRA VEZ</button>
+    </div>
+  </div>
+
+  <h1>🐍 CULEBRA GAME</h1>
+
+  <div class="hud">
+    <div class="hudCard"><h2>⏱ Tiempo</h2><span id="hud-time">00:00</span></div>
+    <div class="hudCard"><h2>🍎 Frutas</h2><span id="hud-frutas">0/10</span></div>
+    <div class="hudCard historial">
+      <h3>🏅 Mejores</h3>
+      <div id="hud-hist"></div>
+    </div>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="mobile-controls">
+    <div class="ctrl-row"><button class="ctrl-btn" data-dir="ARRIBA">▲</button></div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" data-dir="IZQUIERDA">◀</button>
+      <button class="ctrl-btn" data-dir="ABAJO">▼</button>
+      <button class="ctrl-btn" data-dir="DERECHA">▶</button>
+    </div>
+  </div>
+
+<script>
+  const BOARD = 20;
+  let culebra = [{x:10,y:10},{x:9,y:10},{x:8,y:10},{x:7,y:10}];
+  let paredes  = [];
+  let fruta    = {x:3,y:3};
+  let movimiento = "DERECHA";
+  let nextMov    = "DERECHA";
+  let tiempo = 0, frutasComidas = 0, cantP = 5;
+  let speed  = 250;
+  let start = false, gameOver = false, win = false;
+  let gameLoop, cronoLoop;
+
+  const hist = (() => {
+    try { return JSON.parse(localStorage.getItem("historial Culebra")) || []; }
+    catch { return []; }
+  })();
+
+  // ── BOARD DOM ────────────────────────────────────────────
+  const board = document.getElementById("board");
+  board.style.gridTemplateColumns = `repeat(${BOARD},20px)`;
+
+  // Detect small screens and resize cells
+  function getCeldaSize() {
+    if (window.innerWidth <= 380) return 14;
+    if (window.innerWidth <= 520) return 16;
+    return 20;
+  }
+
+  let cells = [];
+
+  function buildBoard() {
+    const size = getCeldaSize();
+    board.innerHTML = "";
+    board.style.gridTemplateColumns = `repeat(${BOARD},${size}px)`;
+    cells = [];
+    for (let i = 0; i < BOARD * BOARD; i++) {
+      const d = document.createElement("div");
+      d.className = "celda";
+      d.style.width = d.style.height = size + "px";
+      board.appendChild(d);
+      cells.push(d);
+    }
+  }
+
+  function render() {
+    const culSet  = new Set(culebra.map(s => `${s.x},${s.y}`));
+    const paredSet = new Set(paredes.map(p => `${p.x},${p.y}`));
+
+    for (let y = 0; y < BOARD; y++) {
+      for (let x = 0; x < BOARD; x++) {
+        const idx = y * BOARD + x;
+        const key = `${x},${y}`;
+        const c = cells[idx];
+        c.className = "celda";
+        if (paredSet.has(key)) { c.classList.add("pared"); continue; }
+        if (fruta.x === x && fruta.y === y) { c.classList.add("fruta"); continue; }
+        const si = culebra.findIndex(s => s.x === x && s.y === y);
+        if (si !== -1) {
+          c.classList.add("culebra");
+          if (si === 0) c.classList.add("cabeza");
+          if (si === culebra.length - 1) c.classList.add("cola");
+        }
+      }
+    }
+  }
+
+  // ── HUD ──────────────────────────────────────────────────
+  function fmt(s) {
+    return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  }
+
+  function updateHUD() {
+    document.getElementById("hud-time").textContent   = fmt(tiempo);
+    document.getElementById("hud-frutas").textContent = `${frutasComidas}/10`;
+    const el = document.getElementById("hud-hist");
+    el.innerHTML = hist.map(t => `<p>${fmt(t)}</p>`).join("");
+  }
+
+  // ── PAREDES ───────────────────────────────────────────────
+  function generarParedes(cantidad) {
+    const list = [];
+    while (list.length < cantidad) {
+      const p = { x: Math.floor(Math.random()*BOARD), y: Math.floor(Math.random()*BOARD) };
+      const dup   = list.some(w => w.x===p.x && w.y===p.y);
+      const onSnk = culebra.some(s => s.x===p.x && s.y===p.y);
+      const cab   = culebra[0];
+      const near  = Math.abs(p.x-cab.x)<=1 && Math.abs(p.y-cab.y)<=1;
+      const onFrt = fruta.x===p.x && fruta.y===p.y;
+      if (!dup && !onSnk && !near && !onFrt) list.push(p);
+    }
+    paredes = list;
+  }
+
+  function generarFruta() {
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random()*BOARD), y: Math.floor(Math.random()*BOARD) };
+    } while (paredes.some(p => p.x===pos.x && p.y===pos.y));
+    fruta = pos;
+  }
+
+  // ── MOVIMIENTO ────────────────────────────────────────────
+  function tick() {
+    if (gameOver || win) return;
+    movimiento = nextMov;
+
+    const cab = culebra[0];
+    let nx = cab.x, ny = cab.y;
+    if (movimiento==="DERECHA")   nx++;
+    if (movimiento==="IZQUIERDA") nx--;
+    if (movimiento==="ARRIBA")    ny--;
+    if (movimiento==="ABAJO")     ny++;
+
+    const hitWall  = paredes.some(p => p.x===nx && p.y===ny);
+    const outBound = nx<0||nx>=BOARD||ny<0||ny>=BOARD;
+
+    if (hitWall || outBound) {
+      gameOver = true;
+      clearInterval(gameLoop);
+      clearInterval(cronoLoop);
+      document.getElementById("go-stats").textContent = `Tiempo: ${fmt(tiempo)} | Frutas: ${frutasComidas}/10`;
+      document.getElementById("overlay-gameover").style.display = "flex";
+      return;
+    }
+
+    const eatFruta = nx===fruta.x && ny===fruta.y;
+    const newSnake = [{x:nx,y:ny}, ...culebra];
+
+    if (eatFruta) {
+      frutasComidas++;
+      if (frutasComidas >= 10) {
+        win = true;
+        clearInterval(gameLoop);
+        clearInterval(cronoLoop);
+        const nuevos = [tiempo, ...hist].sort((a,b)=>a-b).slice(0,5);
+        nuevos.forEach((t,i) => hist[i] = t);
+        hist.length = nuevos.length;
+        try { localStorage.setItem("historial Culebra", JSON.stringify(nuevos)); } catch {}
+        document.getElementById("win-stats").textContent = `Tiempo: ${fmt(tiempo)} 🎉`;
+        document.getElementById("overlay-win").style.display = "flex";
+        return;
+      }
+      generarFruta();
+      cantP += 2;
+      generarParedes(cantP);
+      speed = Math.max(speed * 0.95, 60);
+      clearInterval(gameLoop);
+      gameLoop = setInterval(tick, speed);
+    } else {
+      newSnake.pop();
+    }
+
+    culebra = newSnake;
+    render();
+    updateHUD();
+  }
+
+  // ── CONTROLES ─────────────────────────────────────────────
+  window.addEventListener("keydown", e => {
+    if (!start) return;
+    if (e.key==="ArrowUp"    && movimiento!=="ABAJO")     nextMov="ARRIBA";
+    if (e.key==="ArrowDown"  && movimiento!=="ARRIBA")    nextMov="ABAJO";
+    if (e.key==="ArrowLeft"  && movimiento!=="DERECHA")   nextMov="IZQUIERDA";
+    if (e.key==="ArrowRight" && movimiento!=="IZQUIERDA") nextMov="DERECHA";
+    e.preventDefault();
+  });
+
+  document.querySelectorAll(".ctrl-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!start) return;
+      const d = btn.dataset.dir;
+      if (d==="ARRIBA"    && movimiento!=="ABAJO")     nextMov="ARRIBA";
+      if (d==="ABAJO"     && movimiento!=="ARRIBA")    nextMov="ABAJO";
+      if (d==="IZQUIERDA" && movimiento!=="DERECHA")   nextMov="IZQUIERDA";
+      if (d==="DERECHA"   && movimiento!=="IZQUIERDA") nextMov="DERECHA";
+    });
+  });
+
+  // ── INICIO ────────────────────────────────────────────────
+  buildBoard();
+  generarParedes(cantP);
+  render();
+  updateHUD();
+
+  document.getElementById("btnStart").addEventListener("click", () => {
+    document.getElementById("overlay-start").style.display = "none";
+    start = true;
+    gameLoop  = setInterval(tick, speed);
+    cronoLoop = setInterval(() => { tiempo++; updateHUD(); }, 1000);
+  });
+
+  window.addEventListener("resize", () => {
+    buildBoard();
+    render();
+  });
+</script>
+</body>
+</html>
